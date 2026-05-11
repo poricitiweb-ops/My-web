@@ -1,0 +1,105 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitive Definitions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && 
+        (request.auth.token.get('email', '').lower() == 'poriciti.web@gmail.com' || 
+         request.auth.uid == 'jTlKHWyYQjSa8WaP5uRZz5I3BvD3');
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // User Profile Validation (Pillar 2 & 5)
+    function isValidUser(data) {
+      return data.keys().hasAll(['userId', 'name', 'paymentStatus', 'socialLinks', 'createdAt', 'updatedAt'])
+        // Exact size check on create is handled in the create block specifically
+        && data.userId is string && data.userId == request.auth.uid
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && (!('bio' in data) || (data.bio is string && data.bio.size() <= 2000))
+        && (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 2000))
+        && (!('phoneNumber' in data) || (data.phoneNumber is string && data.phoneNumber.size() <= 20))
+        && (!('mobileNumber' in data) || (data.mobileNumber is string && data.mobileNumber.size() <= 20))
+        && data.socialLinks is list && data.socialLinks.size() <= 20
+        && (data.socialLinks.size() == 0 || (data.socialLinks[0].platform is string && data.socialLinks[0].platform.size() <= 50))
+        && data.paymentStatus in ['pending', 'paid']
+        && (!('views' in data) || (data.views is int && data.views >= 0))
+        && (!('isSuspended' in data) || (data.isSuspended is bool))
+        && (!('isVerified' in data) || (data.isVerified is bool))
+        && (!('senderNumber' in data) || (data.senderNumber is string && data.senderNumber.size() <= 20))
+        && (!('lastTrxId' in data) || (data.lastTrxId is string && data.lastTrxId.size() <= 100))
+        && (!('expiryDate' in data) || (data.expiryDate is string && data.expiryDate.size() <= 100))
+        && (!('paymentDate' in data) || (data.paymentDate is timestamp));
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+
+    match /users/{userId} {
+      // Admin Full Control
+      allow read, write: if isAdmin();
+
+      // PUBLIC READ: Profiles are public for viewing
+      // Pillar 8: Explicitly evaluate resource.data for list queries
+      allow get: if true;
+      allow list: if isAdmin(); // Only admins can browse all users
+
+      allow create: if isSignedIn()
+        && isValidId(userId)
+        && userId == request.auth.uid
+        && isValidUser(incoming())
+        // Pillar 2: Strict Keys on Create (avoid shadow fields)
+        // required: userId, name, paymentStatus, socialLinks, createdAt, updatedAt
+        // plus optional: bio, photoURL, phoneNumber, mobileNumber, views, isSuspended, isVerified...
+        && incoming().keys().size() <= 17 // Max expected fields
+        && incoming().paymentStatus == 'pending'
+        && (!('isVerified' in incoming()) || incoming().isVerified == false)
+        && (!('isSuspended' in incoming()) || incoming().isSuspended == false)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if (
+        isSignedIn() && userId == request.auth.uid && isValidUser(incoming()) && (
+          // Action 1: Basic Profile Update
+          (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'bio', 'photoURL', 'socialLinks', 'mobileNumber', 'phoneNumber', 'updatedAt'])) ||
+          
+          // Action 2: Subscription Payment Submission
+          (incoming().diff(existing()).affectedKeys().hasOnly(['paymentStatus', 'senderNumber', 'lastTrxId', 'paymentDate', 'expiryDate', 'updatedAt', 'isSuspended']))
+        ) && 
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time
+      ) || (
+        // Action 3: Public View Increment
+        incoming().diff(existing()).affectedKeys().hasOnly(['views']) &&
+        incoming().views == (existing().get('views', 0) + 1)
+      );
+      
+      allow delete: if isAdmin();
+    }
+  }
+}

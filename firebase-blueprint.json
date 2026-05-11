@@ -1,0 +1,48 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Stores user visiting card information and social links.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The unique ID of the user (from Firebase Auth)." },
+        "name": { "type": "string", "description": "Full name of the user." },
+        "bio": { "type": "string", "description": "A short professional bio." },
+        "photoURL": { "type": "string", "format": "uri", "description": "Profile picture URL." },
+        "phoneNumber": { "type": "string", "description": "Phone number used during signup." },
+        "mobileNumber": { "type": "string", "description": "User's contact mobile number." },
+        "socialLinks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "platform": { "type": "string", "description": "Social platform name (e.g. facebook)." },
+              "value": { "type": "string", "description": "Username or ID on that platform." }
+            }
+          }
+        },
+        "paymentStatus": {
+          "type": "string",
+          "enum": ["pending", "paid"],
+          "description": "Status of the user's payment for pro features."
+        },
+        "views": { "type": "integer", "description": "Number of profile views." },
+        "isSuspended": { "type": "boolean", "description": "Whether the account is suspended." },
+        "isVerified": { "type": "boolean", "description": "Whether the profile is verified." },
+        "senderNumber": { "type": "string", "description": "The sender's mobile number for payment." },
+        "lastTrxId": { "type": "string", "description": "Transaction ID of the payment." },
+        "paymentDate": { "type": "string", "format": "date-time", "description": "When the payment was recorded." },
+        "expiryDate": { "type": "string", "format": "date-time", "description": "When the subscription expires." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "paymentStatus"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Collection of user profiles."
+    }
+  }
+}
