@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+// Porichiti Digital Card - Sync Triggered
 import { useNavigate, Link } from 'react-router-dom';
 import { doc, getDoc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
