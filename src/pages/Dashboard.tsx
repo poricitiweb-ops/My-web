@@ -17,12 +17,6 @@ import {
   Save, 
   User, 
   Image as ImageIcon, 
-  Facebook, 
-  Instagram, 
-  Youtube, 
-  Linkedin, 
-  Twitter,
-  MessageSquare,
   Loader2,
   CheckCircle2,
   CreditCard,
@@ -38,10 +32,18 @@ import {
   ShieldCheck,
   Ban,
   Plus,
-  Music2,
-  Globe,
   Trash2
 } from 'lucide-react';
+import { 
+  FacebookIcon, 
+  WhatsAppIcon, 
+  InstagramIcon, 
+  YouTubeIcon, 
+  LinkedInIcon, 
+  TikTokIcon, 
+  XIcon, 
+  GlobeIcon 
+} from '../components/BrandIcons';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeSVG } from 'qrcode.react';
 import Footer from '../components/Footer';
@@ -555,7 +557,7 @@ export default function Dashboard() {
                             <div className="space-y-2">
                               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">LinkedIn (Username)</label>
                               <div className="relative">
-                                <Linkedin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                <LinkedInIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} color="currentColor" />
                                 <input 
                                   type="text" 
                                   className="w-full bg-emerald-50/30 border border-emerald-100 rounded-2xl pl-12 pr-5 py-4 outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition-all text-emerald-950 font-bold"
@@ -581,7 +583,7 @@ export default function Dashboard() {
                             <div className="space-y-2">
                               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">TikTok (Username)</label>
                               <div className="relative">
-                                <Music2 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                <TikTokIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} color="currentColor" />
                                 <input 
                                   type="text" 
                                   className="w-full bg-emerald-50/30 border border-emerald-100 rounded-2xl pl-12 pr-5 py-4 outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition-all text-emerald-950 font-bold"
@@ -677,14 +679,14 @@ export default function Dashboard() {
                         <div className="space-y-4">
                           {(profile?.socialLinks || []).map((link, idx) => {
                              const platforms = [
-                               { key: 'facebook', icon: <Facebook size={16} />, label: 'Facebook' },
-                               { key: 'whatsapp', icon: <MessageSquare size={16} />, label: 'WhatsApp' },
-                               { key: 'instagram', icon: <Instagram size={16} />, label: 'Instagram' },
-                               { key: 'youtube', icon: <Youtube size={16} />, label: 'YouTube' },
-                               { key: 'linkedin', icon: <Linkedin size={16} />, label: 'LinkedIn' },
-                               { key: 'tiktok', icon: <Music2 size={16} />, label: 'TikTok' },
-                               { key: 'x', icon: <Twitter size={16} />, label: 'X (Twitter)' },
-                               { key: 'website', icon: <Globe size={16} />, label: 'Website' }
+                               { key: 'facebook', icon: <FacebookIcon size={16} />, label: 'Facebook' },
+                               { key: 'whatsapp', icon: <WhatsAppIcon size={16} />, label: 'WhatsApp' },
+                               { key: 'instagram', icon: <InstagramIcon size={16} />, label: 'Instagram' },
+                               { key: 'youtube', icon: <YouTubeIcon size={16} />, label: 'YouTube' },
+                               { key: 'linkedin', icon: <LinkedInIcon size={16} />, label: 'LinkedIn' },
+                               { key: 'tiktok', icon: <TikTokIcon size={16} />, label: 'TikTok' },
+                               { key: 'x', icon: <XIcon size={16} />, label: 'X (Twitter)' },
+                               { key: 'website', icon: <GlobeIcon size={16} />, label: 'Website' }
                              ];
                              const currentPlatform = platforms.find(p => p.key === link.platform) || platforms[0];
 

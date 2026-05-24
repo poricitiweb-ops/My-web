@@ -6,24 +6,27 @@ import { UserProfile } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { 
-  Facebook, 
-  Instagram, 
-  Youtube, 
-  Linkedin, 
-  MessageSquare,
   Globe,
   Share2,
   CreditCard,
   User,
   ExternalLink,
-  Twitter,
   ChevronRight,
   ArrowLeft,
   Eye,
   Ban,
-  Music2,
   Info
 } from 'lucide-react';
+import { 
+  FacebookIcon, 
+  WhatsAppIcon, 
+  InstagramIcon, 
+  YouTubeIcon, 
+  LinkedInIcon, 
+  TikTokIcon, 
+  XIcon, 
+  GlobeIcon 
+} from '../components/BrandIcons';
 import { motion, AnimatePresence } from 'motion/react';
 import Footer from '../components/Footer';
 
@@ -80,15 +83,69 @@ export default function Profile() {
     fetchProfile();
   }, [userId]);
 
+  const getBrandColors = (platform: string) => {
+    switch (platform.toLowerCase()) {
+      case 'facebook':
+        return {
+          iconColor: '#1877F2',
+          hoverBg: 'group-hover:bg-[#1877F2] group-hover:text-white',
+          hoverCard: 'hover:border-[#1877F2]/20 hover:bg-[#1877F2]/5'
+        };
+      case 'whatsapp':
+        return {
+          iconColor: '#25D366',
+          hoverBg: 'group-hover:bg-[#25D366] group-hover:text-white',
+          hoverCard: 'hover:border-[#25D366]/20 hover:bg-[#25D366]/5'
+        };
+      case 'instagram':
+        return {
+          iconColor: '#E4405F',
+          hoverBg: 'group-hover:bg-gradient-to-tr group-hover:from-[#f09433] group-hover:via-[#dc2743] group-hover:to-[#bc1888] group-hover:text-white',
+          hoverCard: 'hover:border-[#E4405F]/20 hover:bg-[#E4405F]/5'
+        };
+      case 'youtube':
+        return {
+          iconColor: '#FF0000',
+          hoverBg: 'group-hover:bg-[#FF0000] group-hover:text-white',
+          hoverCard: 'hover:border-[#FF0000]/20 hover:bg-[#FF0000]/5'
+        };
+      case 'linkedin':
+        return {
+          iconColor: '#0077B5',
+          hoverBg: 'group-hover:bg-[#0077B5] group-hover:text-white',
+          hoverCard: 'hover:border-[#0077B5]/20 hover:bg-[#0077B5]/5'
+        };
+      case 'tiktok':
+        return {
+          iconColor: '#000000',
+          hoverBg: 'group-hover:bg-[#000000] group-hover:text-white',
+          hoverCard: 'hover:border-[#000000]/20 hover:bg-[#000000]/5'
+        };
+      case 'x':
+      case 'twitter':
+        return {
+          iconColor: '#000000',
+          hoverBg: 'group-hover:bg-[#000000] group-hover:text-white',
+          hoverCard: 'hover:border-[#000000]/20 hover:bg-[#000000]/5'
+        };
+      default:
+        return {
+          iconColor: '#047857',
+          hoverBg: 'group-hover:bg-emerald-800 group-hover:text-white',
+          hoverCard: 'hover:border-emerald-300 hover:bg-emerald-50/10'
+        };
+    }
+  };
+
   const socialIcons = {
-    facebook: <Facebook size={24} />,
-    instagram: <Instagram size={24} />,
-    youtube: <Youtube size={24} />,
-    linkedin: <Linkedin size={24} />,
-    whatsapp: <MessageSquare size={24} />,
-    x: <Twitter size={24} />,
-    tiktok: <Music2 size={24} />,
-    website: <Globe size={24} />
+    facebook: <FacebookIcon size={24} color="currentColor" />,
+    instagram: <InstagramIcon size={24} color="currentColor" />,
+    youtube: <YouTubeIcon size={24} color="currentColor" />,
+    linkedin: <LinkedInIcon size={24} color="currentColor" />,
+    whatsapp: <WhatsAppIcon size={24} color="currentColor" />,
+    x: <XIcon size={24} color="currentColor" />,
+    tiktok: <TikTokIcon size={24} color="currentColor" />,
+    website: <GlobeIcon size={24} color="currentColor" />
   };
 
   const socialBaseUrls = {
@@ -209,6 +266,7 @@ export default function Profile() {
           <div className="grid grid-cols-1 gap-4">
             {(profile.socialLinks || []).map((link, i) => {
               if (!link.value) return null;
+              const brandColors = getBrandColors(link.platform);
               return (
                 <motion.a
                   key={i}
@@ -218,14 +276,19 @@ export default function Profile() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.1 + 0.2 }}
-                  whileHover={{ x: 5, backgroundColor: '#F0F9F6' }}
-                  className="flex items-center gap-6 p-6 rounded-3xl border border-emerald-50/50 bg-emerald-50/20 hover:bg-white hover:border-emerald-200 transition-all group"
+                  whileHover={{ x: 5 }}
+                  className={`flex items-center gap-6 p-6 rounded-3xl border border-emerald-50/50 bg-emerald-50/20 hover:bg-white transition-all group ${brandColors.hoverCard}`}
                 >
-                  <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-emerald-950 shadow-sm border border-emerald-50 group-hover:bg-emerald-950 group-hover:text-white transition-all">
+                  <div 
+                    style={{ color: brandColors.iconColor }}
+                    className={`w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-emerald-50 transition-all duration-300 ${brandColors.hoverBg}`}
+                  >
                     {(socialIcons as any)[link.platform]}
                   </div>
                   <div className="flex-1">
-                    <span className="text-lg font-bold text-emerald-950 capitalize block tracking-tight">{link.platform}</span>
+                    <span className="text-lg font-bold text-emerald-950 capitalize block tracking-tight">
+                      {link.platform === 'x' ? 'X (Twitter)' : link.platform}
+                    </span>
                     <span className="text-xs text-gray-500 font-medium">কানেক্ট করুন</span>
                   </div>
                   <ChevronRight size={20} className="text-gray-300 group-hover:text-emerald-950 transition-colors" />
