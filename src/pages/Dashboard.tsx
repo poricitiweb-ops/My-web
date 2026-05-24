@@ -530,82 +530,15 @@ export default function Dashboard() {
                     
                     <form onSubmit={handleUpdate} className="p-4 sm:p-8 space-y-6 sm:space-y-8">
                         <div className="space-y-4">
-                          <div className="grid md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">কার্ডের নাম</label>
-                              <input 
-                                type="text"
-                                className="w-full bg-emerald-50/30 border border-emerald-100 rounded-2xl px-5 py-4 outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition-all text-emerald-950 font-bold"
-                                value={profile?.name || ''}
-                                onChange={e => setProfile(prev => prev ? {...prev, name: e.target.value} : null)}
-                                required
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">মোবাইল নম্বর / WhatsApp</label>
-                              <div className="relative">
-                                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                <input 
-                                  type="tel" 
-                                  className="w-full bg-emerald-50/30 border border-emerald-100 rounded-2xl pl-12 pr-5 py-4 outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition-all text-emerald-950 font-bold"
-                                  placeholder="017XXXXXXXX"
-                                  value={profile?.mobileNumber || ''}
-                                  onChange={e => setProfile(prev => prev ? {...prev, mobileNumber: e.target.value} : null)}
-                                />
-                              </div>
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">LinkedIn (Username)</label>
-                              <div className="relative">
-                                <LinkedInIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} color="currentColor" />
-                                <input 
-                                  type="text" 
-                                  className="w-full bg-emerald-50/30 border border-emerald-100 rounded-2xl pl-12 pr-5 py-4 outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition-all text-emerald-950 font-bold"
-                                  placeholder="linkedin-username"
-                                  value={(profile?.socialLinks || []).find(l => l.platform === 'linkedin')?.value || ''}
-                                  onChange={e => {
-                                    const val = e.target.value;
-                                    setProfile(prev => {
-                                      if (!prev) return null;
-                                      const links = [...(prev.socialLinks || [])];
-                                      const idx = links.findIndex(l => l.platform === 'linkedin');
-                                      if (idx >= 0) {
-                                        links[idx] = { ...links[idx], value: val };
-                                      } else {
-                                        links.push({ platform: 'linkedin', value: val });
-                                      }
-                                      return { ...prev, socialLinks: links };
-                                    });
-                                  }}
-                                />
-                              </div>
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">TikTok (Username)</label>
-                              <div className="relative">
-                                <TikTokIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} color="currentColor" />
-                                <input 
-                                  type="text" 
-                                  className="w-full bg-emerald-50/30 border border-emerald-100 rounded-2xl pl-12 pr-5 py-4 outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition-all text-emerald-950 font-bold"
-                                  placeholder="tiktok-username"
-                                  value={(profile?.socialLinks || []).find(l => l.platform === 'tiktok')?.value || ''}
-                                  onChange={e => {
-                                    const val = e.target.value;
-                                    setProfile(prev => {
-                                      if (!prev) return null;
-                                      const links = [...(prev.socialLinks || [])];
-                                      const idx = links.findIndex(l => l.platform === 'tiktok');
-                                      if (idx >= 0) {
-                                        links[idx] = { ...links[idx], value: val };
-                                      } else {
-                                        links.push({ platform: 'tiktok', value: val });
-                                      }
-                                      return { ...prev, socialLinks: links };
-                                    });
-                                  }}
-                                />
-                              </div>
-                            </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">কার্ডের নাম</label>
+                            <input 
+                              type="text"
+                              className="w-full bg-emerald-50/30 border border-emerald-100 rounded-2xl px-5 py-4 outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition-all text-emerald-950 font-bold"
+                              value={profile?.name || ''}
+                              onChange={e => setProfile(prev => prev ? {...prev, name: e.target.value} : null)}
+                              required
+                            />
                           </div>
                           
                           <div className="space-y-2">
