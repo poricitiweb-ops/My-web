@@ -298,20 +298,40 @@ export default function Dashboard() {
     }
   };
 
+  const [downloadingSide, setDownloadingSide] = useState<string | null>(null);
+
   const downloadCard = async (side: 'front' | 'back', version: number = 1) => {
+    const sideId = `${side}${version}`;
+    if (downloadingSide) return;
+    
+    setDownloadingSide(sideId);
+
     const ref = version === 1 
       ? (side === 'front' ? cardFrontRef : cardBackRef)
       : (side === 'front' ? cardFrontRef2 : cardBackRef2);
 
-    if (ref.current === null) return;
+    if (ref.current === null) {
+      setDownloadingSide(null);
+      return;
+    }
+
     try {
-      const dataUrl = await toPng(ref.current, { cacheBust: true, pixelRatio: 4, backgroundColor: '#000' });
+      // Use pixelRatio: 2 for extremely sharp resolution (800x450 px), rendering 4x faster and with significantly less memory than pixelRatio: 4.
+      // Disable cacheBust as it causes slow redundant stylesheet downloads.
+      const dataUrl = await toPng(ref.current, { 
+        cacheBust: false, 
+        pixelRatio: 2, 
+        backgroundColor: '#022c22' 
+      });
       const link = document.createElement('a');
       link.download = `card-v${version}-${side}-${profile?.name || 'user'}.png`;
       link.href = dataUrl;
       link.click();
     } catch (err) {
-      alert('কার্ডটি ডাউনলোড করা সম্ভব হয়নি।');
+      console.error("Card download failed:", err);
+      alert('কার্ডটি ডাউনলোড করা সম্ভব হয়নি। দয়া করে আবার চেষ্টা করুন।');
+    } finally {
+      setDownloadingSide(null);
     }
   };
 
@@ -874,11 +894,27 @@ export default function Dashboard() {
                       <div className="bg-white rounded-[2.5rem] border border-emerald-100 overflow-hidden shadow-sm">
                         <div className="p-4 sm:p-6 border-b border-emerald-50 bg-emerald-50/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                           <div className="flex items-center gap-2 order-2 sm:order-1">
-                             <button onClick={() => downloadCard('front', 1)} className="flex items-center gap-2 px-3 py-2 bg-emerald-950 text-white rounded-lg text-[9px] font-bold hover:bg-black transition-all">
-                                Front <Download size={12} />
+                             <button 
+                               onClick={() => downloadCard('front', 1)} 
+                               disabled={downloadingSide !== null}
+                               className="flex items-center gap-2 px-3 py-2 bg-emerald-950 text-white rounded-lg text-[9px] font-bold hover:bg-black transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                             >
+                               {downloadingSide === 'front1' ? (
+                                 <>অপেক্ষা করুন... <Loader2 size={12} className="animate-spin" /></>
+                               ) : (
+                                 <>Front <Download size={12} /></>
+                               )}
                              </button>
-                             <button onClick={() => downloadCard('back', 1)} className="flex items-center gap-2 px-3 py-2 border border-emerald-100 text-emerald-950 rounded-lg text-[9px] font-bold hover:bg-emerald-50 transition-all">
-                                Back <Download size={12} />
+                             <button 
+                               onClick={() => downloadCard('back', 1)} 
+                               disabled={downloadingSide !== null}
+                               className="flex items-center gap-2 px-3 py-2 border border-emerald-100 text-emerald-950 rounded-lg text-[9px] font-bold hover:bg-emerald-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                             >
+                               {downloadingSide === 'back1' ? (
+                                 <>অপেক্ষা করুন... <Loader2 size={12} className="animate-spin" /></>
+                               ) : (
+                                 <>Back <Download size={12} /></>
+                               )}
                              </button>
                           </div>
                           <h2 className="font-black flex items-center gap-3 text-emerald-950 uppercase tracking-widest text-[10px] sm:text-xs order-1 sm:order-2">
@@ -935,11 +971,27 @@ export default function Dashboard() {
                       <div className="bg-white rounded-[2.5rem] border border-emerald-100 overflow-hidden shadow-sm">
                         <div className="p-5 sm:p-8 border-b border-emerald-50 bg-emerald-50/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                           <div className="flex gap-2 order-2 sm:order-1">
-                             <button onClick={() => downloadCard('front', 2)} className="flex items-center gap-2 px-3 py-2 bg-emerald-950 text-white rounded-lg text-[9px] font-bold hover:bg-black transition-all">
-                               Front <Download size={12} />
+                             <button 
+                               onClick={() => downloadCard('front', 2)} 
+                               disabled={downloadingSide !== null}
+                               className="flex items-center gap-2 px-3 py-2 bg-emerald-950 text-white rounded-lg text-[9px] font-bold hover:bg-black transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                             >
+                               {downloadingSide === 'front2' ? (
+                                 <>অপেক্ষা করুন... <Loader2 size={12} className="animate-spin" /></>
+                               ) : (
+                                 <>Front <Download size={12} /></>
+                               )}
                              </button>
-                             <button onClick={() => downloadCard('back', 2)} className="flex items-center gap-2 px-3 py-2 border border-emerald-100 text-emerald-950 rounded-lg text-[9px] font-bold hover:bg-emerald-50 transition-all">
-                               Back <Download size={12} />
+                             <button 
+                               onClick={() => downloadCard('back', 2)} 
+                               disabled={downloadingSide !== null}
+                               className="flex items-center gap-2 px-3 py-2 border border-emerald-100 text-emerald-950 rounded-lg text-[9px] font-bold hover:bg-emerald-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                             >
+                               {downloadingSide === 'back2' ? (
+                                 <>অপেক্ষা করুন... <Loader2 size={12} className="animate-spin" /></>
+                               ) : (
+                                 <>Back <Download size={12} /></>
+                               )}
                              </button>
                           </div>
                           <h2 className="font-black flex items-center gap-3 text-emerald-950 uppercase tracking-widest text-[10px] sm:text-xs order-1 sm:order-2">
