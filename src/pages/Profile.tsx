@@ -35,7 +35,7 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [errorStatus, setErrorStatus] = useState<'not-found' | 'permission-denied' | 'unknown' | null>(null);
 
-  const isOwner = currentUser?.uid === userId;
+  const isOwner = !!currentUser && !!userId && currentUser.uid === userId;
 
   const [imageError, setImageError] = useState(false);
 
