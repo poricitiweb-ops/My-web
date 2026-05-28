@@ -7,6 +7,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import MessengerWidget from './components/MessengerWidget';
 
 // Pages
 import Home from './pages/Home';
@@ -43,6 +44,7 @@ export default function App() {
             />
             <Route path="/u/:userId" element={<Profile />} />
           </Routes>
+          <MessengerWidget />
         </Router>
       </AuthProvider>
     </LanguageProvider>

@@ -72,6 +72,8 @@ export default function Dashboard() {
   const cardBackRef = useRef<HTMLDivElement>(null);
   const cardFrontRef2 = useRef<HTMLDivElement>(null);
   const cardBackRef2 = useRef<HTMLDivElement>(null);
+  const cardFrontRef3 = useRef<HTMLDivElement>(null);
+  const cardBackRef3 = useRef<HTMLDivElement>(null);
 
   const publicUrl = window.location.origin + `/u/${currentUser?.uid}`;
   const isPaid = profile?.paymentStatus === 'paid';
@@ -310,7 +312,9 @@ export default function Dashboard() {
 
     const ref = version === 1 
       ? (side === 'front' ? cardFrontRef : cardBackRef)
-      : (side === 'front' ? cardFrontRef2 : cardBackRef2);
+      : version === 2
+        ? (side === 'front' ? cardFrontRef2 : cardBackRef2)
+        : (side === 'front' ? cardFrontRef3 : cardBackRef3);
 
     if (ref.current === null) {
       setDownloadingSide(null);
@@ -323,7 +327,7 @@ export default function Dashboard() {
       const dataUrl = await toPng(ref.current, { 
         cacheBust: false, 
         pixelRatio: 2, 
-        backgroundColor: '#022c22' 
+        backgroundColor: version === 3 ? '#000000' : '#022c22' 
       });
       const link = document.createElement('a');
       link.download = `card-v${version}-${side}-${profile?.name || 'user'}.png`;
@@ -989,6 +993,82 @@ export default function Dashboard() {
                                      <span className="text-[6px] text-emerald-500 font-black uppercase tracking-[0.5em]">Scan To Connect</span>
                                    </div>
                                 </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Design Version 3 */}
+                      <div className="bg-white rounded-[2.5rem] border border-emerald-100 overflow-hidden shadow-sm">
+                        <div className="p-5 sm:p-8 border-b border-emerald-50 bg-emerald-50/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                          <div className="flex gap-2 order-2 sm:order-1">
+                             <button 
+                               onClick={() => downloadCard('front', 3)} 
+                               disabled={downloadingSide !== null}
+                               className="flex items-center gap-2 px-3 py-2 bg-emerald-950 text-white rounded-lg text-[9px] font-bold hover:bg-black transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                             >
+                               {downloadingSide === 'front3' ? (
+                                 <>অপেক্ষা করুন... <Loader2 size={12} className="animate-spin" /></>
+                               ) : (
+                                 <>Front <Download size={12} /></>
+                               )}
+                             </button>
+                             <button 
+                               onClick={() => downloadCard('back', 3)} 
+                               disabled={downloadingSide !== null}
+                               className="flex items-center gap-2 px-3 py-2 border border-emerald-100 text-emerald-950 rounded-lg text-[9px] font-bold hover:bg-emerald-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                             >
+                               {downloadingSide === 'back3' ? (
+                                 <>অপেক্ষা করুন... <Loader2 size={12} className="animate-spin" /></>
+                               ) : (
+                                 <>Back <Download size={12} /></>
+                               )}
+                             </button>
+                          </div>
+                          <h2 className="font-black flex items-center gap-3 text-emerald-950 uppercase tracking-widest text-[10px] sm:text-xs order-1 sm:order-2">
+                            <CreditCard size={18} className="text-emerald-600" /> কার্ড ডিজাইন ৩ (Portrait Edition)
+                          </h2>
+                        </div>
+                        <div className="p-2 sm:p-6 flex flex-col md:flex-row gap-6 md:gap-12 justify-center items-center overflow-hidden">
+                          {/* Front V3: Portrait full vertical image on front */}
+                          <div className="space-y-2 flex flex-col items-center">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Front Preview</span>
+                            <div className="flex justify-center bg-gray-50 rounded-2xl p-4 w-[270px] h-[380px] items-center border border-emerald-50 shadow-inner">
+                              <div ref={cardFrontRef3} className="w-[240px] h-[350px] rounded-2xl relative overflow-hidden shadow-xl flex items-center justify-center bg-black">
+                                {profile?.photoURL ? (
+                                  <img 
+                                    src={profile.photoURL} 
+                                    alt="" 
+                                    className="absolute inset-0 w-full h-full object-cover" 
+                                    style={{ objectPosition: 'center' }}
+                                    crossOrigin="anonymous"
+                                  />
+                                ) : (
+                                  <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-neutral-900 to-black select-none">
+                                    <User className="text-neutral-700" size={64} />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 mt-2 font-bengali">ছবি আপলোড করুন</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          {/* Back V3: Vertical card, black background */}
+                          <div className="space-y-2 flex flex-col items-center">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Back Preview</span>
+                            <div className="flex justify-center bg-gray-50 rounded-2xl p-4 w-[270px] h-[380px] items-center border border-emerald-50 shadow-inner">
+                              <div ref={cardBackRef3} className="w-[240px] h-[350px] rounded-2xl relative overflow-hidden shadow-xl flex flex-col justify-between py-8 px-6" style={{ background: '#000000' }}>
+                                 <div className="relative z-10 text-center space-y-1.5 flex flex-col items-center">
+                                   <div className="w-12 h-1 bg-emerald-500 rounded-full mb-1"></div>
+                                   <span className="text-[8px] text-emerald-500 font-black uppercase tracking-[0.4em] block">Connect with me</span>
+                                   <h2 className="text-white text-base font-black tracking-tight leading-relaxed font-bengali pt-1">চলুন নতুন ভাবে<br />পরিচিত হই</h2>
+                                 </div>
+                                 <div className="relative z-10 flex flex-col items-center gap-2">
+                                   <div className="bg-white p-2.5 rounded-2xl shadow-2xl ring-4 ring-white/5">
+                                      <QRCodeSVG value={publicUrl} size={80} level="H" imageSettings={{ src: logoData, height: 16, width: 16, excavate: true }} fgColor="#022c22" />
+                                   </div>
+                                   <span className="text-[6px] text-emerald-500 font-black uppercase tracking-[0.5em] mt-1">Scan To Connect</span>
+                                 </div>
                               </div>
                             </div>
                           </div>
