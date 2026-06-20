@@ -3,6 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
 import fs from "fs";
+import compression from "compression";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,6 +12,8 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // Enable gzip compression for faster asset delivery and extremely responsive loading
+  app.use(compression());
   app.use(express.json());
 
   // API Routes

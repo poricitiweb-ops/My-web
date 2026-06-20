@@ -33,16 +33,56 @@
         "lastTrxId": { "type": "string", "description": "Transaction ID of the payment." },
         "paymentDate": { "type": "string", "format": "date-time", "description": "When the payment was recorded." },
         "expiryDate": { "type": "string", "format": "date-time", "description": "When the subscription expires." },
+        "referralCode": { "type": "string", "description": "The user's personal referral code." },
+        "appliedReferral": { "type": "string", "description": "The referral code applied by this user." },
+        "bestFriendCode": { "type": "string", "description": "The user's personal Best Friend referral code." },
+        "bestFriendCodeCopied": { "type": "boolean", "description": "Whether the Best Friend code has been copied by the user." },
+        "bestFriendCodeUsed": { "type": "boolean", "description": "Whether the Best Friend code has already been used by someone." },
+        "bestFriendCodeUsedBy": { "type": "string", "description": "The user ID of the friend who used this Best Friend code." },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "name", "paymentStatus"]
+    },
+    "ReferralCode": {
+      "title": "Admin Promo Code",
+      "description": "Stores individual admin-created promotional codes.",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "description": "The promo code string in uppercase (e.g. SPECIAL30)." },
+        "discount": { "type": "integer", "description": "Discount percentage (0 to 100)." },
+        "isActive": { "type": "boolean", "description": "Whether this promo code is currently active." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["code", "discount", "isActive"]
+    },
+    "SettingsReferral": {
+      "title": "Settings Referral",
+      "description": "Stores current admin configured referral settings.",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "description": "Deprecated - The active referral code." },
+        "discount": { "type": "integer", "description": "Deprecated - Percentage discount (1 to 100)." },
+        "friendDiscount": { "type": "integer", "description": "Percentage discount for standard friend referrals." },
+        "isGlobalEnabled": { "type": "boolean", "description": "Global active switch for the entire referral system." },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["friendDiscount", "isGlobalEnabled"]
     }
   },
   "firestore": {
     "users/{userId}": {
       "schema": "User",
       "description": "Collection of user profiles."
+    },
+    "referralCodes/{code}": {
+      "schema": "ReferralCode",
+      "description": "Table of promotional codes created by admin."
+    },
+    "settings/referral": {
+      "schema": "SettingsReferral",
+      "description": "Admin settings for the referral code."
     }
   }
 }

@@ -14,6 +14,21 @@ export interface UserProfile {
   views?: number;
   isSuspended?: boolean;
   isVerified?: boolean;
+  referralCode?: string;
+  appliedReferral?: string;
+  bestFriendCode?: string;
+  bestFriendCodeCopied?: boolean;
+  bestFriendCodeUsed?: boolean;
+  bestFriendCodeUsedBy?: string;
+  messengerShares?: number;
   createdAt: any;
   updatedAt: any;
+}
+
+export interface ReferralCode {
+  code: string;
+  discount: number;
+  isActive: boolean;
+  createdAt?: any;
+  updatedAt?: any;
 }

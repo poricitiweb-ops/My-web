@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { collection, query, getDocs, doc, updateDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, serverTimestamp, deleteDoc, getDoc, setDoc } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { UserProfile } from '../types';
+import { UserProfile, ReferralCode } from '../types';
 import { 
   Users, 
   ShieldCheck, 
@@ -23,7 +23,12 @@ import {
   Clock,
   UserCheck,
   UserX,
-  ScanLine
+  ScanLine,
+  Tag,
+  Percent,
+  Gift,
+  Video,
+  DollarSign
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Footer from '../components/Footer';
@@ -36,7 +41,153 @@ export default function Admin() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<'all' | 'paid' | 'pending' | 'suspended' | 'verified' | 'unverified' | 'recent'>('all');
 
-  const isAdmin = currentUser?.email === 'poriciti.web@gmail.com';
+  // Referral states
+  const [refCode, setRefCode] = useState('');
+  const [refDiscount, setRefDiscount] = useState(10);
+  const [friendDiscount, setFriendDiscount] = useState(15);
+  const [isGlobalEnabled, setIsGlobalEnabled] = useState(true);
+  const [videoUrl, setVideoUrl] = useState('');
+  const [rewardAmount, setRewardAmount] = useState('');
+  const [referralCodesList, setReferralCodesList] = useState<ReferralCode[]>([]);
+  const [loadingCodes, setLoadingCodes] = useState(false);
+  const [newPromoCode, setNewPromoCode] = useState('');
+  const [newPromoDiscount, setNewPromoDiscount] = useState(10);
+  const [savingNewPromo, setSavingNewPromo] = useState(false);
+  const [promoMessage, setPromoMessage] = useState('');
+  const [savingRef, setSavingRef] = useState(false);
+  const [refMessage, setRefMessage] = useState('');
+
+  const isAdmin = currentUser?.email === 'poriciti.web@gmail.com' || currentUser?.email === 'admin@poriciti.com';
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    async function fetchReferralConfigAndCodes() {
+      try {
+        const refDoc = await getDoc(doc(db, 'settings', 'referral'));
+        if (refDoc.exists()) {
+          const data = refDoc.data();
+          setRefCode(data.code || '');
+          setRefDiscount(data.discount || 0);
+          setFriendDiscount(data.friendDiscount !== undefined ? data.friendDiscount : 15);
+          setIsGlobalEnabled(data.isGlobalEnabled !== undefined ? data.isGlobalEnabled : true);
+          setVideoUrl(data.videoUrl || '');
+          setRewardAmount(data.rewardAmount || '');
+        } else {
+          setFriendDiscount(15);
+          setIsGlobalEnabled(true);
+          setVideoUrl('');
+          setRewardAmount('');
+        }
+
+        // Fetch multiple promo codes
+        setLoadingCodes(true);
+        const promoSnap = await getDocs(query(collection(db, 'referralCodes')));
+        const promoList = promoSnap.docs.map(d => d.data() as ReferralCode);
+        setReferralCodesList(promoList);
+      } catch (err: any) {
+        console.error('Error fetching referral settings/codes:', err);
+      } finally {
+        setLoadingCodes(false);
+      }
+    }
+    fetchReferralConfigAndCodes();
+  }, [isAdmin]);
+
+  const saveReferralConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (friendDiscount < 0 || friendDiscount > 100) {
+      setRefMessage('বন্ধুদের ডিস্কাউন্ট হার ০ থেকে ১০০ এর মধ্যে হতে হবে।');
+      return;
+    }
+    try {
+      setSavingRef(true);
+      setRefMessage('');
+      await setDoc(doc(db, 'settings', 'referral'), {
+        code: refCode.trim().toUpperCase(),
+        discount: Number(refDiscount),
+        friendDiscount: Number(friendDiscount),
+        isGlobalEnabled: isGlobalEnabled,
+        videoUrl: videoUrl.trim(),
+        rewardAmount: rewardAmount.trim(),
+        updatedAt: serverTimestamp()
+      });
+      setRefMessage('সেটিংস সফলভাবে আপডেট করা হয়েছে!');
+    } catch (err: any) {
+      console.error('Error saving referral config:', err);
+      setRefMessage('সেটিংস সেভ করতে সমস্যা হয়েছে।');
+      handleFirestoreError(err, OperationType.WRITE, 'settings/referral');
+    } finally {
+      setSavingRef(false);
+    }
+  };
+
+  const handleAddPromoCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const formattedCode = newPromoCode.trim().toUpperCase();
+    if (!formattedCode) {
+      setPromoMessage('প্রোমো কোড অবশ্যই দিতে হবে।');
+      return;
+    }
+    if (newPromoDiscount < 0 || newPromoDiscount > 100) {
+      setPromoMessage('ডিস্কাউন্ট হার অবশ্যই ০ থেকে ১০০ এর মধ্যে হতে হবে।');
+      return;
+    }
+    try {
+      setSavingNewPromo(true);
+      setPromoMessage('');
+      
+      const newPromo: ReferralCode = {
+        code: formattedCode,
+        discount: Number(newPromoDiscount),
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      await setDoc(doc(db, 'referralCodes', formattedCode), newPromo);
+      
+      setReferralCodesList(prev => {
+        const filtered = prev.filter(p => p.code !== formattedCode);
+        return [...filtered, newPromo];
+      });
+
+      setNewPromoCode('');
+      setPromoMessage('নতুন প্রোমো কোড সফলভাবে যোগ করা হয়েছে!');
+    } catch (err: any) {
+      console.error('Error adding promo code:', err);
+      setPromoMessage('প্রোমো কোড যোগ করতে সমস্যা হয়েছে।');
+    } finally {
+      setSavingNewPromo(false);
+    }
+  };
+
+  const handleTogglePromoCode = async (code: string, currentStatus: boolean) => {
+    try {
+      const codeRef = doc(db, 'referralCodes', code);
+      await updateDoc(codeRef, {
+        isActive: !currentStatus,
+        updatedAt: new Date().toISOString()
+      });
+
+      setReferralCodesList(prev => 
+        prev.map(p => p.code === code ? { ...p, isActive: !currentStatus } : p)
+      );
+    } catch (err: any) {
+      console.error('Error toggling promo code status:', err);
+      alert('স্ট্যাটাস পরিবর্তন সফল হয়নি।');
+    }
+  };
+
+  const handleDeletePromoCode = async (code: string) => {
+    if (!window.confirm(`আপনি কি সত্যিই '${code}' কোডটি মুছে ফেলতে চান?`)) return;
+    try {
+      await deleteDoc(doc(db, 'referralCodes', code));
+      setReferralCodesList(prev => prev.filter(p => p.code !== code));
+    } catch (err: any) {
+      console.error('Error deleting promo code:', err);
+      alert('কোড মুছতে ব্যর্থ হয়েছে।');
+    }
+  };
 
   useEffect(() => {
     if (!isAdmin) {
@@ -114,9 +265,9 @@ export default function Admin() {
       // If marking as paid, also set a paymentDate if it doesn't exist
       if (newStatus === 'paid') {
         updateData.paymentDate = serverTimestamp();
-        // Set expiry date to 1 year from now
+        // Set expiry date to 13 months from now
         const expiry = new Date();
-        expiry.setFullYear(expiry.getFullYear() + 1);
+        expiry.setMonth(expiry.getMonth() + 13);
         updateData.expiryDate = expiry.toISOString();
       }
 
@@ -299,6 +450,239 @@ export default function Admin() {
               <Ban size={16} className="text-red-300" />
             </div>
             <p className="text-3xl font-black text-red-600">{users.filter(u => u.isSuspended).length}</p>
+          </div>
+        </div>
+
+        {/* Referral Program Admin Settings */}
+        <div className="space-y-8 mb-8">
+          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm animate-fade-in text-left">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-50 text-emerald-700 rounded-xl">
+                  <Gift size={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-gray-900 font-bengali">রেফারেল প্রোগ্রাম সেটিংস</h2>
+                  <p className="text-xs text-gray-400">পুরো প্রগ্রামের সক্রিয়তা এবং বন্ধুদের রেফারেল ডিস্কাউন্টের সেটিংস</p>
+                </div>
+              </div>
+
+              {/* Master Global Toggle */}
+              <div className="flex items-center gap-3 bg-gray-50 px-4 py-2 rounded-2xl border border-gray-200 shrink-0 select-none">
+                <span className="text-xs font-black uppercase text-gray-500 font-bengali">সব রেফারেল কোড:</span>
+                <button
+                  type="button"
+                  onClick={() => setIsGlobalEnabled(!isGlobalEnabled)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    isGlobalEnabled ? 'bg-emerald-600' : 'bg-red-400'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      isGlobalEnabled ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+                <span className={`text-xs font-bold ${isGlobalEnabled ? 'text-emerald-600' : 'text-red-500'}`}>
+                  {isGlobalEnabled ? 'সক্রিয়' : 'নিষ্ক্রিয়'}
+                </span>
+              </div>
+            </div>
+
+            <form onSubmit={saveReferralConfig} className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+              <div>
+                <label className="block text-xs font-black uppercase text-gray-500 tracking-wider mb-2 font-bengali">বন্ধুদের জন্য ডিস্কাউন্ট হার (%)</label>
+                <div className="relative">
+                  <Percent size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input 
+                    type="number" 
+                    placeholder="যেমন: ১৫"
+                    min="0"
+                    max="100"
+                    className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition-all font-bold text-sm"
+                    value={friendDiscount}
+                    onChange={e => setFriendDiscount(Number(e.target.value))}
+                  />
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1 font-bengali">বন্ধুরা আপনার রেফার কোড ব্যবহার করলে তারা কতো % ছাড় পাবে।</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-black uppercase text-gray-500 tracking-wider mb-2 font-bengali">রেফারকারীকে পুরষ্কার প্রদান (পরিমাণ বা শতাংশ)</label>
+                <div className="relative">
+                  <DollarSign size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input 
+                    type="text" 
+                    placeholder="যেমন: ৩০% ডিস্কাউন্ট বা ৫০০ টাকা"
+                    className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition-all font-bold text-sm"
+                    value={rewardAmount}
+                    onChange={e => setRewardAmount(e.target.value)}
+                  />
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1 font-bengali">৩ জন মেসেঞ্জার শেয়ার সম্পন্ন হলে ইউজার যে পুরষ্কার (অর্থ/ডিস্কাউন্ট) পাবেন তার বিবরণ।</p>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-xs font-black uppercase text-gray-500 tracking-wider mb-2 font-bengali">রেফারেল ভিডিও গাইডলাইন লিংক (YouTube Link)</label>
+                <div className="relative">
+                  <Video size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input 
+                    type="url" 
+                    placeholder="যেমন: https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                    className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition-all font-bold text-sm"
+                    value={videoUrl}
+                    onChange={e => setVideoUrl(e.target.value)}
+                  />
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1 font-bengali">ইউজারদের রেফারাল পোর্টালে এই গাইডলাইন ভিডিওটি দেখানো হবে।</p>
+              </div>
+
+              <div className="md:col-span-2 flex flex-col gap-2">
+                <button
+                  type="submit"
+                  disabled={savingRef}
+                  className="w-full bg-emerald-950 text-white font-black hover:bg-emerald-900 transition-colors py-3.5 px-6 rounded-2xl text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 shadow-md cursor-pointer"
+                >
+                  {savingRef ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      সেভিং...
+                    </>
+                  ) : (
+                    'গ্লোবাল সেটিংস আপডেট করুন'
+                  )}
+                </button>
+              </div>
+            </form>
+
+            {refMessage && (
+              <div className={`mt-4 p-4 rounded-xl text-xs font-bold leading-relaxed flex items-center gap-2 ${
+                refMessage.includes('সফলভাবে') ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-red-50 text-red-800 border border-red-100'
+              }`}>
+                <AlertCircle size={16} className="shrink-0" />
+                <span>{refMessage}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Multiple Promo/Referral Codes Section */}
+          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm grid grid-cols-1 lg:grid-cols-3 gap-8 text-left">
+            {/* Create Code Form */}
+            <div className="lg:col-span-1 space-y-4">
+              <div className="space-y-1">
+                <h3 className="font-black text-gray-900 text-sm font-bengali">নতুন প্রোমো কোড তৈরি করুন</h3>
+                <p className="text-xs text-gray-450">তৈরিকৃত কোডগুলো যেকোনো ইউজার সাবস্ক্রিপশন কেনার সময় ব্যবহার করতে পারবে</p>
+              </div>
+
+              <form onSubmit={handleAddPromoCode} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-gray-500 tracking-wider mb-1.5 font-bengali">কোড নাম</label>
+                  <div className="relative">
+                    <Tag size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input 
+                      type="text" 
+                      placeholder="যেমন: SPECIAL30"
+                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition-all font-mono font-bold text-xs tracking-wider"
+                      value={newPromoCode}
+                      onChange={e => setNewPromoCode(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-gray-500 tracking-wider mb-1.5 font-bengali">ডিস্কাউন্ট পারসেন্ট (%)</label>
+                  <div className="relative">
+                    <Percent size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input 
+                      type="number" 
+                      placeholder="যেমন: ৩০"
+                      min="0"
+                      max="100"
+                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition-all font-bold text-xs"
+                      value={newPromoDiscount}
+                      onChange={e => setNewPromoDiscount(Number(e.target.value))}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={savingNewPromo}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2.5 px-4 rounded-xl text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 transition-colors disabled:opacity-50 select-none cursor-pointer"
+                >
+                  {savingNewPromo ? <Loader2 size={12} className="animate-spin" /> : 'কোড তৈরি করুন'}
+                </button>
+              </form>
+
+              {promoMessage && (
+                <p className={`text-[11px] font-bold ${promoMessage.includes('সফলভাবে') ? 'text-emerald-700 bg-emerald-50 border border-emerald-100 p-2.5 rounded-lg' : 'text-rose-700 bg-rose-50 border border-rose-100 p-2.5 rounded-lg'}`}>
+                  {promoMessage}
+                </p>
+              )}
+            </div>
+
+            {/* Promo Codes List */}
+            <div className="lg:col-span-2 space-y-4">
+              <h3 className="font-black text-gray-900 text-sm font-bengali">অ্যাক্টিভ প্রোমো কোড সমূহ</h3>
+
+              {loadingCodes ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 size={24} className="animate-spin text-emerald-600" />
+                </div>
+              ) : referralCodesList.length === 0 ? (
+                <div className="border border-dashed border-gray-200 rounded-2xl p-8 text-center text-gray-400 text-xs">
+                  কোনো প্রোমো কোড তৈরি করা হয়নি।
+                </div>
+              ) : (
+                <div className="border border-gray-200 rounded-2xl overflow-hidden overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-gray-50 text-[10px] font-black uppercase text-gray-400 border-b border-gray-200">
+                      <tr>
+                        <th className="px-4 py-3 font-bengali">কোড</th>
+                        <th className="px-4 py-3 font-bengali">ডিস্কাউন্ট</th>
+                        <th className="px-4 py-3 font-bengali">অবস্থা</th>
+                        <th className="px-4 py-3 text-right font-bengali">অ্যাকশন</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {referralCodesList.map((promo) => (
+                        <tr key={promo.code} className="hover:bg-gray-50/50 transition-colors">
+                          <td className="px-4 py-3.5 font-mono font-black text-gray-950 tracking-wider">
+                            {promo.code}
+                          </td>
+                          <td className="px-4 py-3.5 font-bold text-emerald-600 text-sm">
+                            {promo.discount}%
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <button
+                              type="button"
+                              onClick={() => handleTogglePromoCode(promo.code, promo.isActive)}
+                              className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider select-none cursor-pointer transition-colors ${
+                                promo.isActive 
+                                  ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200' 
+                                  : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
+                              }`}
+                            >
+                              {promo.isActive ? 'সক্রিয়' : 'নিষ্ক্রিয়'}
+                            </button>
+                          </td>
+                          <td className="px-4 py-3.5 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePromoCode(promo.code)}
+                              className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                              title="মুছে ফেলুন"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

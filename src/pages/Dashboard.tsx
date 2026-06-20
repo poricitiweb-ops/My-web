@@ -32,7 +32,15 @@ import {
   ShieldCheck,
   Ban,
   Plus,
-  Trash2
+  Trash2,
+  Tag,
+  Gift,
+  Percent,
+  Copy,
+  Heart,
+  MoreVertical,
+  Video,
+  ArrowLeft
 } from 'lucide-react';
 import { 
   FacebookIcon, 
@@ -58,7 +66,7 @@ export default function Dashboard() {
   const [saving, setSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'info' | 'public' | 'download' | 'subscription'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'public' | 'download' | 'subscription' | 'referral'>('info');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [showMoreSocials, setShowMoreSocials] = useState(false);
@@ -67,6 +75,139 @@ export default function Dashboard() {
   const [senderNumber, setSenderNumber] = useState('');
   const [trxId, setTrxId] = useState('');
   const [submittingTrx, setSubmittingTrx] = useState(false);
+
+  // Referral states
+  const [referralInput, setReferralInput] = useState('');
+  const [appliedCode, setAppliedCode] = useState('');
+  const [discountPercent, setDiscountPercent] = useState(0);
+  const [recommenderName, setRecommenderName] = useState('');
+  const [checkingCode, setCheckingCode] = useState(false);
+  const [codeError, setCodeError] = useState('');
+  const [codeSuccess, setCodeSuccess] = useState('');
+  const [personalRefCopied, setPersonalRefCopied] = useState(false);
+  const [isThreeDotOpen, setIsThreeDotOpen] = useState(false);
+  const [isBestFriendCodeApplied, setIsBestFriendCodeApplied] = useState(false);
+  const [bestFriendOwnerId, setBestFriendOwnerId] = useState('');
+  const [friendDiscount, setFriendDiscount] = useState(15);
+  const [videoUrl, setVideoUrl] = useState('');
+  const [rewardAmount, setRewardAmount] = useState('');
+
+  // Auto-apply if referee query param is present on mount
+  useEffect(() => {
+    const refParam = new URLSearchParams(window.location.search).get('ref');
+    if (refParam) {
+      setReferralInput(refParam);
+      // Wait for currentUser to ensure we don't apply self-referral
+      if (currentUser) {
+        checkAndApplyCode(refParam);
+      }
+    }
+  }, [currentUser]);
+
+  const checkAndApplyCode = async (codeToApply?: string) => {
+    const code = (codeToApply || referralInput).trim();
+    if (!code) {
+      setCodeError('অনুগ্রহ করে একটি রেফার কোড লিখুন।');
+      return;
+    }
+
+    setCheckingCode(true);
+    setCodeError('');
+    setCodeSuccess('');
+
+    try {
+      // Fetch global settings
+      let globalActive = true;
+      let configuredFriendDiscount = 15;
+
+      const refSettingDoc = await getDoc(doc(db, 'settings', 'referral'));
+      if (refSettingDoc.exists()) {
+        const adminSettings = refSettingDoc.data();
+        globalActive = adminSettings.isGlobalEnabled !== undefined ? adminSettings.isGlobalEnabled : true;
+        configuredFriendDiscount = adminSettings.friendDiscount !== undefined ? adminSettings.friendDiscount : 15;
+        setFriendDiscount(configuredFriendDiscount);
+      }
+
+      if (!globalActive) {
+        setCodeError('দুঃখিত, আডমিন থেকে রেফারেল সুবিধাটি বর্তমানে সাময়িকভাবে বন্ধ রাখা হয়েছে।');
+        setCheckingCode(false);
+        return;
+      }
+
+      // 1. Check if matches custom promo/referral codes created by admin in referralCodes collection
+      const promoDoc = await getDoc(doc(db, 'referralCodes', code.toUpperCase()));
+      if (promoDoc.exists()) {
+        const promoData = promoDoc.data();
+        if (promoData.isActive) {
+          setDiscountPercent(promoData.discount || 0);
+          setAppliedCode(code.toUpperCase());
+          setCodeSuccess(`অভিনন্দন! "${code.toUpperCase()}" কোডটি সফলভাবে প্রয়োগ করা হয়েছে। আপনি পাচ্ছেন ${promoData.discount}% বিশেষ ডিস্কাউন্ট!`);
+          setRecommenderName('');
+          setIsBestFriendCodeApplied(false);
+          setBestFriendOwnerId('');
+          setCheckingCode(false);
+          return;
+        } else {
+          setCodeError('দুঃখিত, এই ওয়ান-টাইম প্রোমো কোডটি বর্তমানে নিষ্ক্রিয় করা আছে।');
+          setCheckingCode(false);
+          return;
+        }
+      }
+
+      // Backup Legacy check for the single setting / settings/referral
+      if (refSettingDoc.exists()) {
+        const adminData = refSettingDoc.data();
+        if (adminData.code && adminData.code.trim().toUpperCase() === code.trim().toUpperCase()) {
+          setDiscountPercent(adminData.discount || 0);
+          setAppliedCode(code.toUpperCase());
+          setCodeSuccess(`অভিনন্দন! "${code.toUpperCase()}" কোডটি সফলভাবে প্রয়োগ করা হয়েছে। আপনি পাচ্ছেন ${adminData.discount}% বিশেষ ডিস্কাউন্ট!`);
+          setRecommenderName('');
+          setIsBestFriendCodeApplied(false);
+          setBestFriendOwnerId('');
+          setCheckingCode(false);
+          return;
+        }
+      }
+
+      // 2. Check if matches Best Friend Referral Code (Syntax: BF-friendUid)
+      if (code.toUpperCase().startsWith('BF-')) {
+        const friendUid = code.substring(3).trim();
+        if (friendUid === currentUser?.uid) {
+          setCodeError('আপনি নিজের বেস্ট ফ্রেন্ড রেফার কোড ব্যবহার করতে পারবেন না!');
+          setCheckingCode(false);
+          return;
+        }
+
+        const friendDoc = await getDoc(doc(db, 'users', friendUid));
+        if (friendDoc.exists()) {
+          const friendData = friendDoc.data();
+          if (friendData.bestFriendCodeUsed) {
+            setCodeError('দুঃখিত, এই ওয়ান-টাইম বেস্ট ফ্রেন্ড কোডটি ইতিমধ্যে অন্য এক বন্ধু ব্যবহার করে ফেলেছে!');
+            setCheckingCode(false);
+            return;
+          }
+
+          // Apply higher special Best Friend discount (e.g. 30% discount!)
+          setDiscountPercent(30);
+          setAppliedCode(code.toUpperCase());
+          setRecommenderName(friendData.name || 'আপনার বেস্ট ফ্রেন্ড');
+          setIsBestFriendCodeApplied(true);
+          setBestFriendOwnerId(friendUid);
+          setCodeSuccess(`অভিনন্দন! আপনার বেস্ট ফ্রেন্ড "${friendData.name || 'ইউজার'}" এর ওয়ান-টাইম কোড সফলভাবে প্রয়োগ করা হয়েছে। আপনি পাচ্ছেন ৩০% ডাবল ডিস্কাউন্ট!`);
+          setCheckingCode(false);
+          return;
+        }
+      }
+
+      // We have removed general/personal user-to-user referrals; only Best Friend and Admin promo codes can be applied.
+      setCodeError('ভুল রেফার কোড বা প্রোমো কোড! দয়া করে সঠিক কোডটি দিন।');
+    } catch (err) {
+      console.error('Error applying referral code:', err);
+      setCodeError('রেফার কোড যাচাই করতে সমস্যা হয়েছে।');
+    } finally {
+      setCheckingCode(false);
+    }
+  };
   
   const cardFrontRef = useRef<HTMLDivElement>(null);
   const cardBackRef = useRef<HTMLDivElement>(null);
@@ -77,13 +218,26 @@ export default function Dashboard() {
 
   const publicUrl = window.location.origin + `/u/${currentUser?.uid}`;
   const isPaid = profile?.paymentStatus === 'paid';
-  const isAdmin = currentUser?.email === 'poriciti.web@gmail.com';
+  const isAdmin = currentUser?.email === 'poriciti.web@gmail.com' || currentUser?.email === 'admin@poriciti.com';
   const isSuspended = profile?.isSuspended;
 
   useEffect(() => {
     async function fetchProfile() {
       if (!currentUser) return;
       try {
+        // Load global settings
+        try {
+          const refSettingDoc = await getDoc(doc(db, 'settings', 'referral'));
+          if (refSettingDoc.exists()) {
+            const adminSettings = refSettingDoc.data();
+            setVideoUrl(adminSettings.videoUrl || '');
+            setRewardAmount(adminSettings.rewardAmount || '');
+            setFriendDiscount(adminSettings.friendDiscount !== undefined ? adminSettings.friendDiscount : 15);
+          }
+        } catch (setErr) {
+          console.error("Error loading referral global settings:", setErr);
+        }
+
         const docRef = doc(db, 'users', currentUser.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
@@ -108,7 +262,7 @@ export default function Dashboard() {
             userData.socialLinks = [];
           }
           
-          // অটোমেটিক এক্সপায়ারি চেক (৫ মাস পর)
+          // অটোমেটিক এক্সপায়ারি চেক (১ বছর পর)
           if (userData.paymentStatus === 'paid' && userData.expiryDate) {
             const expiry = new Date(userData.expiryDate);
             if (expiry < new Date()) {
@@ -250,25 +404,114 @@ export default function Dashboard() {
     }
   };
 
+  const handleMessengerShare = async () => {
+    if (!currentUser) return;
+    
+    const currentShares = profile?.messengerShares || 0;
+    const nextShares = Math.min(3, currentShares + 1);
+    const generatedCode = profile?.referralCode || `REF-${currentUser.uid.substring(0, 8).toUpperCase()}`;
+    const shareUrl = `${window.location.origin}/dashboard?ref=${generatedCode}`;
+    
+    // Step 1: Force copy the link immediately so the user can easily paste it.
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+    } catch (clipErr) {
+      console.warn("Could not copy link to clipboard automatically:", clipErr);
+    }
+
+    // Step 2: Open Messenger or native share sheet
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    
+    if (isMobile && navigator.share) {
+      try {
+        await navigator.share({
+          title: 'পরিচিতি ডিজিটাল কার্ড',
+          text: 'আমাদের পরিচিতি ডিজিটাল কার্ড দিয়ে মাত্র ১ মিনিটে নিজের QR কার্ড তৈরি করুন ও রেফার করুন!',
+          url: shareUrl
+        });
+      } catch (shareErr) {
+        console.log("Navigator share cancelled or failed, falling back:", shareErr);
+        // Fallback to Messenger deep link scheme
+        window.open(`fb-messenger://share/?link=${encodeURIComponent(shareUrl)}`, '_blank');
+      }
+    } else if (isMobile) {
+      // Mobile without navigator.share
+      window.open(`fb-messenger://share/?link=${encodeURIComponent(shareUrl)}`, '_blank');
+    } else {
+      // Desktop: Use robust Facebook Web Share dialog (contains Messenger share option inside it)
+      const facebookShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+      window.open(facebookShareUrl, '_blank', 'noopener,noreferrer');
+    }
+    
+    // Step 3: Track the share status
+    try {
+      const userRef = doc(db, 'users', currentUser.uid);
+      const updatePayload: any = {
+        messengerShares: nextShares,
+        updatedAt: serverTimestamp()
+      };
+      
+      if (nextShares >= 3) {
+        updatePayload.referralCode = generatedCode;
+      }
+      
+      await updateDoc(userRef, updatePayload);
+      setProfile(prev => prev ? {
+        ...prev,
+        messengerShares: nextShares,
+        referralCode: nextShares >= 3 ? generatedCode : prev.referralCode
+      } : null);
+      
+      if (nextShares === 3) {
+        alert('অভিনন্দন! আপনার ৩ টি শেয়ার সফল হয়েছে এবং আপনার নতুন রেফারেল কোডটি আনলক করা হয়েছে! লিঙ্কটি ক্লিপবোর্ডে কপি করা হয়েছে।');
+      } else {
+        alert(`লিঙ্কটি ক্লিপবোর্ডে কপি করা হয়েছে এবং মেসেঞ্জার খোলার চেষ্টা করা হচ্ছে! শেয়ার ট্র্যাকিং কারেন্ট স্ট্যাটাস: (${nextShares}/৩)`);
+      }
+    } catch (err: any) {
+      console.error("Error updating shares/referralCode:", err);
+      handleFirestoreError(err, OperationType.UPDATE, `users/${currentUser.uid}`);
+    }
+  };
+
   const handleUpgradeRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!trxId || !senderNumber || !currentUser) return;
     
     setSubmittingTrx(true);
     try {
+      // If Best Friend code used, mark it as used in the referrer's document (Action 4)
+      if (isBestFriendCodeApplied && bestFriendOwnerId) {
+        try {
+          const refereeDocRef = doc(db, 'users', bestFriendOwnerId);
+          await updateDoc(refereeDocRef, {
+            bestFriendCodeUsed: true,
+            bestFriendCodeUsedBy: currentUser.uid
+          });
+        } catch (friendErr: any) {
+          console.error("Failed to mark referee Best Friend code as used:", friendErr);
+        }
+      }
+
       const docRef = doc(db, 'users', currentUser.uid);
       const expiryDate = new Date();
-      expiryDate.setMonth(expiryDate.getMonth() + 5);
+      expiryDate.setFullYear(expiryDate.getFullYear() + 1);
 
-      const updateData = { 
+      const generatedRefCode = profile?.referralCode || `PORICITI-${currentUser.uid}`;
+
+      const updateData: any = { 
         paymentStatus: 'paid',
         isSuspended: false,
         lastTrxId: trxId,
         senderNumber: senderNumber,
         paymentDate: serverTimestamp(),
         expiryDate: expiryDate.toISOString(),
+        referralCode: generatedRefCode,
         updatedAt: serverTimestamp()
       };
+
+      if (appliedCode) {
+        updateData.appliedReferral = appliedCode;
+      }
 
       const docSnap = await getDoc(docRef);
       if (!docSnap.exists()) {
@@ -280,7 +523,7 @@ export default function Dashboard() {
           createdAt: serverTimestamp()
         });
       } else {
-        await updateDoc(docRef, updateData as any);
+        await updateDoc(docRef, updateData);
       }
       
       setProfile(prev => prev ? {
@@ -288,10 +531,15 @@ export default function Dashboard() {
         paymentStatus: 'paid',
         isSuspended: false,
         lastTrxId: trxId,
-        expiryDate: expiryDate.toISOString()
+        expiryDate: expiryDate.toISOString(),
+        referralCode: generatedRefCode,
+        appliedReferral: appliedCode || prev.appliedReferral
       } : null);
       
-      alert('অভিনন্দন! আপনার ৫১ টাকার ৫ মাস মেয়াদী সাবস্ক্রিপশন সফলভাবে সক্রিয় করা হয়েছে।');
+      const originalPrice = 51;
+      const finalPrice = discountPercent > 0 ? Math.round(originalPrice * (1 - discountPercent / 100)) : originalPrice;
+      
+      alert(`অভিনন্দন! আপনার ${finalPrice} টাকার ১ বছর মেয়াদী সাবস্ক্রিপশন সফলভাবে সক্রিয় করা হয়েছে।`);
       setActiveTab('info');
     } catch (err) {
       console.error("Subscription error:", err);
@@ -420,6 +668,34 @@ export default function Dashboard() {
                 </button>
               ))}
             </div>
+
+            {/* 3-Dot Dropdown Menu */}
+            <div className="relative">
+              <button 
+                onClick={() => setIsThreeDotOpen(!isThreeDotOpen)} 
+                className="text-emerald-950 hover:bg-emerald-50 p-2.5 rounded-xl transition-colors cursor-pointer flex items-center justify-center border border-transparent hover:border-emerald-100"
+              >
+                <MoreVertical size={18} />
+              </button>
+              {isThreeDotOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsThreeDotOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-150 rounded-2xl shadow-xl z-50 py-2">
+                    <button
+                      onClick={() => {
+                        setActiveTab('referral');
+                        setIsThreeDotOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-xs font-bold font-bengali text-gray-700 hover:bg-emerald-50 hover:text-emerald-805 transition-colors text-left"
+                    >
+                      <Gift size={15} className="text-emerald-600 animate-pulse" />
+                      রেফার কোড
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
             <button onClick={logout} className="text-red-500 hover:bg-red-50 p-2.5 rounded-xl transition-colors">
               <LogOut size={18} />
             </button>
@@ -452,7 +728,8 @@ export default function Dashboard() {
                   { id: 'info', label: 'প্রাথমিক তথ্য' },
                   { id: 'public', label: 'পাবলিক কার্ড দেখুন' },
                   { id: 'download', label: 'কার্ড ডাউনলোড' },
-                  { id: 'subscription', label: 'সাবস্ক্রিপশন' }
+                  { id: 'subscription', label: 'সাবস্ক্রিপশন' },
+                  { id: 'referral', label: 'রেফার কোড' }
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -1095,14 +1372,53 @@ export default function Dashboard() {
                         </div>
                         <div className="p-4 sm:p-8 bg-white/5 rounded-xl sm:rounded-[2.5rem] border border-white/10 backdrop-blur-xl flex flex-col sm:flex-row items-center sm:justify-between gap-4 shadow-2xl text-center sm:text-left">
                            <div className="space-y-1">
-                              <span className="text-[8px] sm:text-[11px] font-black uppercase text-emerald-400 tracking-widest">৫ মাস মেয়াদের জন্য</span>
-                              <div className="flex items-baseline justify-center sm:justify-start gap-2">
-                                 <span className="text-3xl sm:text-6xl font-black">৳ ৫১</span>
-                                 <span className="text-lg sm:text-2xl text-emerald-400/40 font-bold">মাত্র</span>
+                              <span className="text-[8px] sm:text-[11px] font-black uppercase text-emerald-400 tracking-widest">১ বছর মেয়াদের জন্য</span>
+                              <div className="flex flex-col">
+                                 {discountPercent > 0 && (
+                                   <span className="text-xs sm:text-sm text-rose-400 line-through font-bold text-center sm:text-left">৳ ৫১ মাত্র</span>
+                                 )}
+                                 <div className="flex items-baseline justify-center sm:justify-start gap-2">
+                                    <span className="text-3xl sm:text-6xl font-black">
+                                       ৳ {discountPercent > 0 ? Math.round(51 * (1 - discountPercent / 100)) : 51}
+                                    </span>
+                                    <span className="text-lg sm:text-2xl text-emerald-400/40 font-bold">মাত্র</span>
+                                 </div>
                               </div>
                            </div>
                            <div className="bg-emerald-500 text-emerald-950 font-black px-3 py-1 sm:px-5 sm:py-2 rounded-full text-[8px] sm:text-[10px] uppercase shadow-lg shadow-emerald-500/20">Special Offer</div>
                         </div>
+
+                        {/* Referral Code Application */}
+                        {!isPaid && (
+                           <div className="bg-white/5 p-4 sm:p-6 rounded-xl sm:rounded-3xl border border-white/10 backdrop-blur-xl">
+                              <div className="flex items-center gap-2 mb-3">
+                                 <Tag size={14} className="text-emerald-400 animate-pulse" />
+                                 <span className="text-[10px] sm:text-xs font-black uppercase text-emerald-300 tracking-wider font-bengali">রেফার কোড ব্যবহার করুন</span>
+                              </div>
+
+                              <div className="flex gap-2">
+                                 <input 
+                                    type="text" 
+                                    placeholder="যেমন: SPECIAL30 বা বন্ধুর কোড"
+                                    disabled={!!appliedCode}
+                                    className="flex-grow px-3 py-2 sm:px-4 sm:py-3 bg-white/10 border border-white/10 rounded-xl text-xs font-bold text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono tracking-wider "
+                                    value={referralInput}
+                                    onChange={(e) => setReferralInput(e.target.value)}
+                                 />
+                                 <button
+                                    type="button"
+                                    onClick={() => checkAndApplyCode()}
+                                    disabled={checkingCode || !!appliedCode}
+                                    className="px-4 py-2 sm:px-6 sm:py-3 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-black rounded-xl text-xs uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center justify-center gap-1 cursor-pointer"
+                                 >
+                                    {checkingCode ? <Loader2 size={12} className="animate-spin" /> : (appliedCode ? 'প্রযুক্ত' : 'প্রয়োগ করুন')}
+                                 </button>
+                              </div>
+
+                              {codeError && <p className="text-[10px] sm:text-xs text-rose-300 font-bold mt-2 flex items-center gap-1">⚠ {codeError}</p>}
+                              {codeSuccess && <p className="text-[10px] sm:text-xs text-emerald-200 font-bold mt-2 flex items-center gap-1">✓ {codeSuccess}</p>}
+                           </div>
+                        )}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
                            <div className="p-4 sm:p-6 bg-pink-600/90 rounded-xl sm:rounded-3xl border border-white/10 shadow-xl space-y-2 sm:space-y-3">
                               <div className="flex items-center justify-between">
@@ -1123,7 +1439,7 @@ export default function Dashboard() {
                         {!isPaid ? (
                           <>
                             <div className="bg-white/5 p-4 sm:p-6 rounded-xl sm:rounded-3xl border border-white/10 text-[10px] sm:text-xs text-emerald-100/60 leading-relaxed italic">
-                              উপরে দেওয়া যেকোনো একটি নম্বরে <span className="text-white font-black">৫১ টাকা</span> "Send Money" করুন। এরপর নিচের ফর্মে আপনার পেমেন্ট তথ্য দিন। সাবমিট করলে আপনার অ্যাকাউন্ট অটোমেটিক ৫ মাসের জন্য প্রো হয়ে যাবে।
+                              উপরে দেওয়া যেকোনো একটি নম্বরে <span className="text-white font-black">{discountPercent > 0 ? Math.round(51 * (1 - discountPercent / 100)) : 51} টাকা</span> "Send Money" করুন। এরপর নিচের ফর্মে আপনার পেমেন্ট তথ্য দিন। সাবমিট করলে আপনার অ্যাকাউন্ট অটোমেটিক ১ বছরের জন্য প্রো হয়ে যাবে।
                             </div>
                             <form onSubmit={handleUpgradeRequest} className="bg-white rounded-2xl sm:rounded-[2.5rem] p-5 sm:p-10 space-y-5 sm:space-y-8 text-emerald-950 shadow-2xl">
                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
@@ -1178,10 +1494,246 @@ export default function Dashboard() {
                                  }) : 'মেয়াদ পাওয়া যায়নি'}
                                </p>
                             </div>
+
+                            {/* Personal Referral share section */}
+                            <div className="mt-8 pt-6 border-t border-gray-100 text-left space-y-4 font-bengali">
+                              <div className="flex items-start gap-3">
+                                <div className="p-2 bg-emerald-50 text-emerald-700 rounded-xl mt-0.5 shrink-0">
+                                  <Gift size={20} className="text-emerald-700" />
+                                </div>
+                                <div className="space-y-1">
+                                  <h5 className="font-extrabold text-gray-900 text-sm">পরিচিতি রেফারেল প্রোগ্রাম</h5>
+                                  <p className="text-xs text-gray-500 leading-relaxed font-bengali">
+                                    মেসেঞ্জারে বন্ধুদের শেয়ার করে আপনার অনন্য রেফারেল কোডটি আনলক করুন এবং আকর্ষণীয় পুরষ্কার অর্জন করুন! 
+                                  </p>
+                                  <div className="pt-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveTab('referral')}
+                                      className="inline-flex items-center gap-1.5 bg-emerald-950 hover:bg-emerald-900 text-white transition-colors px-4 py-2 rounded-xl text-xs font-bold cursor-pointer select-none"
+                                    >
+                                      রেফারেল পোর্টালে যান
+                                      <ArrowLeft size={14} className="rotate-180" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
                    </div>
+                </motion.div>
+              )}
+
+              {activeTab === 'referral' && (
+                <motion.div
+                  key="ref-portal"
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -15 }}
+                  className="bg-white rounded-3xl border border-gray-200 shadow-xl overflow-hidden font-sans text-left max-w-2xl mx-auto"
+                >
+                  <div className="bg-emerald-950 p-6 sm:p-8 text-white relative">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 animate-pulse">
+                      <Gift size={120} className="fill-white text-white" />
+                    </div>
+                    <div className="relative z-10 space-y-2">
+                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-3 py-1 rounded-full uppercase tracking-wider font-sans">
+                        Referral Portal
+                      </span>
+                      <h3 className="text-xl sm:text-2xl font-black font-bengali">পরিচিতি রেফারেল প্রোগ্রাম</h3>
+                      <p className="text-xs text-emerald-200/80 leading-relaxed font-bengali">
+                        মেসেঞ্জারে বন্ধুদের সাথে শেয়ার করুন এবং পেয়ে যান বিশেষ ডিস্কাউন্ট বা পুরষ্কার!
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-6 sm:p-10 space-y-8">
+                    {/* 1. Video Guideline player if provided by Admin */}
+                    {videoUrl && (
+                      <div className="space-y-4">
+                        <h4 className="font-extrabold text-gray-900 text-sm font-bengali flex items-center gap-2">
+                          <Video size={18} className="text-emerald-700 font-bold" />
+                          রেফারেল গাইডলাইন ভিডিও
+                        </h4>
+                        <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-150">
+                          {(() => {
+                            const getYouTubeEmbedId = (url: string) => {
+                              if (!url) return null;
+                              const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+                              const match = url.match(regExp);
+                              return (match && match[2].length === 11) ? match[2] : null;
+                            };
+                            const embedId = getYouTubeEmbedId(videoUrl);
+                            if (embedId) {
+                              return (
+                                <div className="aspect-video w-full rounded-xl overflow-hidden shadow-sm border border-gray-200 bg-black">
+                                  <iframe
+                                    src={`https://www.youtube.com/embed/${embedId}`}
+                                    title="Referral Guideline Video"
+                                    frameBorder="0"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                    className="w-full h-full"
+                                  ></iframe>
+                                </div>
+                              );
+                            } else {
+                              return (
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-1">
+                                  <p className="text-xs text-gray-500 font-bengali leading-relaxed md:max-w-md">
+                                    রেফারেল প্রোগ্রামের নিয়ম এবং সহজে অতিরিক্ত আয়ের সেরা ট্রিকস জানতে নিচের লিংকে ক্লিক করে আমাদের নির্দেশিকা ভিডিওটি দেখে নিন।
+                                  </p>
+                                  <a
+                                    href={videoUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="bg-emerald-950 text-white text-xs font-black py-3 px-5 rounded-xl hover:bg-emerald-900 transition-colors flex items-center gap-1.5 shrink-0 inline-flex"
+                                  >
+                                    <Video size={14} />
+                                    ভিডিওটি দেখুন
+                                  </a>
+                                </div>
+                              );
+                            }
+                          })()}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 2. Messenger Share Counter & Progress */}
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-emerald-50 text-emerald-700 rounded-xl">
+                          <Gift size={20} className="text-emerald-700" />
+                        </div>
+                        <div>
+                          <h4 className="font-extrabold text-gray-900 text-sm font-bengali">মেসেঞ্জারে ৩ জন বন্ধুকে শেয়ার করুন</h4>
+                          <p className="text-[11px] text-gray-500 font-bengali leading-relaxed">
+                            মেসেঞ্জারে ৩ জন ফ্রেন্ডকে শেয়ার করলেই আপনার নিজস্ব বিশেষ রেফারেল কোড এবং শেয়ার লিংক স্বয়ংক্রিয়ভাবে আনলক হয়ে যাবে!
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Share Tracking Box */}
+                      <div className="bg-gray-50/70 p-6 rounded-2xl border border-gray-200 text-left space-y-6">
+                        {/* Progress bar */}
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center font-bengali">
+                            <span className="text-[11px] font-extrabold uppercase tracking-wide text-gray-400">মেসেঞ্জার শেয়ার অগ্রগতি</span>
+                            <span className="text-emerald-700 font-black text-xs">
+                              {profile?.messengerShares || 0} / ৩ সম্পন্ন হয়েছে
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 h-2.5 rounded-full overflow-hidden">
+                            <div 
+                              className="bg-emerald-600 h-2.5 rounded-full transition-all duration-500"
+                              style={{ width: `${Math.min(100, ((profile?.messengerShares || 0) / 3) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Lock / Reward Indicator & Share CTA */}
+                        {(() => {
+                          const shares = profile?.messengerShares || 0;
+                          const hasUnlocked = shares >= 3;
+                          const generatedCode = profile?.referralCode || `REF-${currentUser?.uid.substring(0, 8).toUpperCase()}`;
+                          const referralLink = `${window.location.origin}/dashboard?ref=${generatedCode}`;
+
+                          if (!hasUnlocked) {
+                            return (
+                              <div className="space-y-4">
+                                <div className="p-4 bg-emerald-50 text-emerald-800 rounded-xl border border-emerald-100/50 text-xs font-bold leading-relaxed font-bengali">
+                                  📌 শেয়ার সম্পন্ন হলে আপনার পুরষ্কার: <span className="text-emerald-700 font-black text-sm">{rewardAmount || '৩০% ডিস্কাউন্ট ও নগদ পুরষ্কার'}</span> পাবেন।
+                                </div>
+                                <div className="text-center">
+                                  <button
+                                    type="button"
+                                    onClick={handleMessengerShare}
+                                    className="bg-[#00B2FF] hover:bg-[#0099DD] text-white font-black text-xs py-3.5 px-6 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2.5 max-w-xs mx-auto cursor-pointer"
+                                  >
+                                    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                                      <path d="M12 2C6.36 2 2 6.13 2 11.2c0 2.9 1.44 5.48 3.7 7.15V22l3.47-1.9c.87.24 1.8.38 2.83.38 5.64 0 10-4.13 10-9.2C22 6.13 17.64 2 12 2zm1.18 12.06L10.3 11l-3.57 3.56 3.92-4.18 2.87 3.06 3.52-3.56-3.85 4.18z"/>
+                                    </svg>
+                                    <span>মেসেঞ্জারে বন্ধুকে শেয়ার করুন</span>
+                                  </button>
+                                  <p className="text-[10px] text-gray-400 mt-2 font-bengali">
+                                    *প্রতিটি শেয়ার কাউন্ট করতে বাটনে ক্লিক করে মেসেঞ্জার চ্যাট চালু করুন। ৩ বার শেয়ার করা হলে কোড তৈরি হবে।
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <div className="space-y-5 pt-2">
+                                <div className="p-4 bg-emerald-100/50 text-emerald-950 rounded-xl border border-emerald-200/50 text-xs font-bold leading-relaxed font-bengali flex items-center gap-2">
+                                  <span className="text-lg">🎉</span>
+                                  <span>অভিনন্দন! মেসেঞ্জারে ৩ জন বন্ধুকে শেয়ার সফল হয়েছে। নিচে আপনার অনন্য কোডটি দেওয়া হলো:</span>
+                                </div>
+
+                                <div className="p-4 bg-emerald-50 text-emerald-800 rounded-xl border border-emerald-100/50 text-xs font-bold leading-relaxed font-bengali">
+                                  📌 রেফারেল মেম্বারশিপ থেকে আপনার পুরষ্কারের পরিমাণ: <span className="text-emerald-700 font-extrabold text-sm">{rewardAmount || '৩০% ডিস্কাউন্ট ও নগদ পুরষ্কার'}</span>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  {/* Unlocked Referral Code Display */}
+                                  <div className="space-y-1 text-left">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-emerald-800 font-bengali font-sans font-bold">আপনার অনন্য রেফার কোড</span>
+                                    <div className="flex items-center justify-between gap-1.5 bg-white px-3.5 py-2.5 rounded-xl border border-emerald-100 shadow-sm">
+                                      <span className="font-mono font-black text-emerald-900 text-xs tracking-wider">
+                                        {generatedCode}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          try {
+                                            await navigator.clipboard.writeText(generatedCode);
+                                            alert('আপনার রেফারেল কোড সফলভাবে কপি করা হয়েছে!');
+                                          } catch (err) {
+                                            alert('কোড কপি করতে সমস্যা হয়েছে।');
+                                          }
+                                        }}
+                                        className="bg-emerald-950 hover:bg-emerald-900 text-white px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-sm select-none"
+                                      >
+                                        <Copy size={10} />
+                                        <span>কপি করুন</span>
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Unlocked Referral Link Display */}
+                                  <div className="space-y-1 text-left">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-emerald-800 font-bengali font-sans font-bold">আপনার শেয়ার করার লিংক</span>
+                                    <div className="flex items-center justify-between gap-1.5 bg-white px-3.5 py-2.5 rounded-xl border border-emerald-100 shadow-sm">
+                                      <span className="font-mono text-[9px] text-emerald-900 overflow-hidden text-ellipsis whitespace-nowrap max-w-[120px]">
+                                        {referralLink}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          try {
+                                            await navigator.clipboard.writeText(referralLink);
+                                            alert('আপনার রেফারেল লিংক সফলভাবে কপি করা হয়েছে!');
+                                          } catch (err) {
+                                            alert('লিংক কপি করতে সমস্যা হয়েছে।');
+                                          }
+                                        }}
+                                        className="bg-emerald-950 hover:bg-emerald-900 text-white px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-sm select-none"
+                                      >
+                                        <Copy size={10} />
+                                        <span>কপি করুন</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }
+                        })()}
+                      </div>
+                    </div>
+                  </div>
                 </motion.div>
               )}
             </motion.div>
