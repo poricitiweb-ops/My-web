@@ -455,12 +455,35 @@ export default function Dashboard() {
         updatePayload.referralCode = generatedCode;
       }
       
-      await updateDoc(userRef, updatePayload);
-      setProfile(prev => prev ? {
-        ...prev,
-        messengerShares: nextShares,
-        referralCode: nextShares >= 3 ? generatedCode : prev.referralCode
-      } : null);
+      const docSnap = await getDoc(userRef);
+      if (!docSnap.exists()) {
+        const initialProfile: any = {
+          userId: currentUser.uid,
+          name: currentUser.displayName || 'ব্যবহারকারী',
+          bio: '',
+          photoURL: currentUser.photoURL || '',
+          socialLinks: [
+            { platform: 'facebook', value: '' },
+            { platform: 'whatsapp', value: '' },
+            { platform: 'instagram', value: '' }
+          ],
+          paymentStatus: 'pending',
+          views: 0,
+          isSuspended: false,
+          isVerified: false,
+          ...updatePayload,
+          createdAt: serverTimestamp()
+        };
+        await setDoc(userRef, initialProfile);
+        setProfile(initialProfile);
+      } else {
+        await updateDoc(userRef, updatePayload);
+        setProfile(prev => prev ? {
+          ...prev,
+          messengerShares: nextShares,
+          referralCode: nextShares >= 3 ? generatedCode : prev.referralCode
+        } : null);
+      }
       
       if (nextShares === 3) {
         alert('অভিনন্দন! আপনার ৩ টি শেয়ার সফল হয়েছে এবং আপনার নতুন রেফারেল কোডটি আনলক করা হয়েছে! লিঙ্কটি ক্লিপবোর্ডে কপি করা হয়েছে।');

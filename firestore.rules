@@ -36,7 +36,7 @@ service cloud.firestore {
 
     // User Profile Validation (Pillar 2 & 5)
     function isValidUser(data) {
-      return data.keys().hasAll(['userId', 'name', 'paymentStatus', 'socialLinks', 'createdAt', 'updatedAt'])
+      return data.keys().hasAll(['userId', 'name', 'paymentStatus'])
         // Exact size check on create is handled in the create block specifically
         && data.userId is string && data.userId == request.auth.uid
         && data.name is string && data.name.size() > 0 && data.name.size() <= 100
@@ -44,12 +44,13 @@ service cloud.firestore {
         && (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 2000))
         && (!('phoneNumber' in data) || (data.phoneNumber is string && data.phoneNumber.size() <= 20))
         && (!('mobileNumber' in data) || (data.mobileNumber is string && data.mobileNumber.size() <= 20))
-        && data.socialLinks is list && data.socialLinks.size() <= 20
-        && (data.socialLinks.size() == 0 || (data.socialLinks[0].platform is string && data.socialLinks[0].platform.size() <= 50))
+        && (!('socialLinks' in data) || (data.socialLinks is list && data.socialLinks.size() <= 20 && (data.socialLinks.size() == 0 || (data.socialLinks[0].platform is string && data.socialLinks[0].platform.size() <= 50))))
         && data.paymentStatus in ['pending', 'paid']
         && (!('views' in data) || (data.views is int && data.views >= 0))
         && (!('isSuspended' in data) || (data.isSuspended is bool))
         && (!('isVerified' in data) || (data.isVerified is bool))
+        && (!('createdAt' in data) || data.createdAt is timestamp)
+        && (!('updatedAt' in data) || data.updatedAt is timestamp)
         && (!('senderNumber' in data) || (data.senderNumber is string && data.senderNumber.size() <= 20))
         && (!('lastTrxId' in data) || (data.lastTrxId is string && data.lastTrxId.size() <= 100))
         && (!('expiryDate' in data) || (data.expiryDate is string && data.expiryDate.size() <= 100))
@@ -59,7 +60,8 @@ service cloud.firestore {
         && (!('bestFriendCode' in data) || (data.bestFriendCode is string && data.bestFriendCode.size() <= 100))
         && (!('bestFriendCodeCopied' in data) || (data.bestFriendCodeCopied is bool))
         && (!('bestFriendCodeUsed' in data) || (data.bestFriendCodeUsed is bool))
-        && (!('bestFriendCodeUsedBy' in data) || (data.bestFriendCodeUsedBy is string && data.bestFriendCodeUsedBy.size() <= 100));
+        && (!('bestFriendCodeUsedBy' in data) || (data.bestFriendCodeUsedBy is string && data.bestFriendCodeUsedBy.size() <= 100))
+        && (!('messengerShares' in data) || (data.messengerShares is int && data.messengerShares >= 0 && data.messengerShares <= 3));
     }
 
     function isValidSettingsReferral(data) {
@@ -106,7 +108,7 @@ service cloud.firestore {
         // Pillar 2: Strict Keys on Create (avoid shadow fields)
         // required: userId, name, paymentStatus, socialLinks, createdAt, updatedAt
         // plus optional fields
-        && incoming().keys().size() <= 23 // Max expected fields including new referral / friend fields
+        && incoming().keys().size() <= 30 // Max expected fields including new referral / friend fields
         && incoming().paymentStatus == 'pending'
         && (!('isVerified' in incoming()) || incoming().isVerified == false)
         && (!('isSuspended' in incoming()) || incoming().isSuspended == false)
@@ -116,13 +118,13 @@ service cloud.firestore {
       allow update: if (
         isSignedIn() && userId == request.auth.uid && isValidUser(incoming()) && (
           // Action 1: Basic Profile Update
-          (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'bio', 'photoURL', 'socialLinks', 'mobileNumber', 'phoneNumber', 'updatedAt', 'referralCode', 'appliedReferral', 'bestFriendCode', 'bestFriendCodeCopied', 'bestFriendCodeUsed', 'bestFriendCodeUsedBy'])) ||
+          (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'bio', 'photoURL', 'socialLinks', 'mobileNumber', 'phoneNumber', 'updatedAt', 'referralCode', 'appliedReferral', 'bestFriendCode', 'bestFriendCodeCopied', 'bestFriendCodeUsed', 'bestFriendCodeUsedBy', 'messengerShares'])) ||
           
           // Action 2: Subscription Payment Submission
-          (incoming().diff(existing()).affectedKeys().hasOnly(['paymentStatus', 'senderNumber', 'lastTrxId', 'paymentDate', 'expiryDate', 'updatedAt', 'isSuspended', 'referralCode', 'appliedReferral', 'bestFriendCode', 'bestFriendCodeCopied', 'bestFriendCodeUsed', 'bestFriendCodeUsedBy']))
+          (incoming().diff(existing()).affectedKeys().hasOnly(['paymentStatus', 'senderNumber', 'lastTrxId', 'paymentDate', 'expiryDate', 'updatedAt', 'isSuspended', 'referralCode', 'appliedReferral', 'bestFriendCode', 'bestFriendCodeCopied', 'bestFriendCodeUsed', 'bestFriendCodeUsedBy', 'messengerShares']))
         ) && 
-        incoming().userId == existing().userId &&
-        incoming().createdAt == existing().createdAt &&
+        incoming().get('userId', '') == existing().get('userId', '') &&
+        incoming().get('createdAt', null) == existing().get('createdAt', null) &&
         incoming().updatedAt == request.time
       ) || (
         // Action 3: Public View Increment

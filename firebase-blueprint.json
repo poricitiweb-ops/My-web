@@ -39,6 +39,7 @@
         "bestFriendCodeCopied": { "type": "boolean", "description": "Whether the Best Friend code has been copied by the user." },
         "bestFriendCodeUsed": { "type": "boolean", "description": "Whether the Best Friend code has already been used by someone." },
         "bestFriendCodeUsedBy": { "type": "string", "description": "The user ID of the friend who used this Best Friend code." },
+        "messengerShares": { "type": "integer", "description": "Number of times the user shared the referral link on Messenger." },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
